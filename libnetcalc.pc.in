@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: netcalc
+Description: Public subnet calculation library and shared CLI/reporting utilities for netcalc
+Version: @NETCALC_PC_VERSION@
+Libs: -L${libdir} -lnetcalc
+Cflags: -I${includedir}

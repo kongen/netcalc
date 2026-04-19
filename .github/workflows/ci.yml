@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  autotools:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool pkg-config cmake ninja-build libgtest-dev libgmock-dev
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install autoconf automake libtool pkg-config cmake googletest
+      - name: Autotools build and test
+        run: |
+          ./autogen.sh
+          ./configure
+          make
+          make check
+      - name: Verify shared library artifact (Autotools)
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            test -f src/.libs/libnetcalc.dylib
+          else
+            test -f src/.libs/libnetcalc.so
+          fi
+
+  cmake:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libgtest-dev libgmock-dev
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cmake googletest
+      - name: CMake build and test
+        run: |
+          cmake -S . -B build -G Ninja
+          cmake --build build
+          ctest --test-dir build --output-on-failure
+      - name: Verify shared library artifact (CMake)
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            test -f build/libnetcalc.dylib
+          else
+            test -f build/libnetcalc.so
+          fi
