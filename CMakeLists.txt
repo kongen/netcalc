@@ -96,7 +96,7 @@ target_include_directories(ipv6calc PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/src ${CM
 target_compile_features(ipv6calc PRIVATE cxx_std_11)
 target_link_libraries(ipv6calc PRIVATE netcalc)
 
-if(APPLE)
+if(UNIX)
 	set_target_properties(ipv4calc ipv6calc PROPERTIES
 		INSTALL_RPATH ${CMAKE_INSTALL_FULL_LIBDIR}
 	)
