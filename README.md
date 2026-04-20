@@ -2,7 +2,7 @@
 
 Small command-line subnet calculators for IPv4 and IPv6.
 
-Current release: `v1.0.0`
+Current release: `v1.0.1`
 
 This project builds two user-facing tools:
 
