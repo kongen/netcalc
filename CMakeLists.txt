@@ -69,6 +69,11 @@ set_target_properties(netcalc PROPERTIES
 	VERSION ${PROJECT_VERSION}
 	SOVERSION ${PROJECT_VERSION_MAJOR}
 )
+if(APPLE)
+	set_target_properties(netcalc PROPERTIES
+		INSTALL_NAME_DIR ${CMAKE_INSTALL_FULL_LIBDIR}
+	)
+endif()
 
 target_include_directories(netcalc
 	PUBLIC
@@ -90,6 +95,12 @@ add_executable(ipv6calc
 target_include_directories(ipv6calc PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/src ${CMAKE_SOURCE_DIR}/src)
 target_compile_features(ipv6calc PRIVATE cxx_std_11)
 target_link_libraries(ipv6calc PRIVATE netcalc)
+
+if(APPLE)
+	set_target_properties(ipv4calc ipv6calc PROPERTIES
+		INSTALL_RPATH ${CMAKE_INSTALL_FULL_LIBDIR}
+	)
+endif()
 
 install(TARGETS netcalc ipv4calc ipv6calc
 	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
