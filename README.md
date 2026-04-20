@@ -132,7 +132,7 @@ Build outputs:
 To build a static library instead:
 
 ```bash
-cmake -S . -B build -DNETCALC_BUILD_SHARED_LIBS=OFF
+cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
 cmake --build build
 ```
 
