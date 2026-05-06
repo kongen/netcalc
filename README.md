@@ -2,7 +2,7 @@
 
 Small command-line subnet calculators for IPv4 and IPv6.
 
-Current release: `v1.0.1`
+Current release: `v1.0.2`
 
 This project builds two user-facing tools:
 
@@ -282,7 +282,7 @@ src/ipv6calc --format xml --output=stderr 2001:db8:abcd:12::1234/64
 This makes local builds and GitHub release builds report useful version metadata
 without maintaining a hardcoded version header.
 
-For packaged and source-release builds, the project version fallback is `1.0.0`.
+For packaged and source-release builds, the project version fallback is `1.0.2`.
 
 ## Installed Files
 

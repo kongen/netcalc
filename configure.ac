@@ -1,6 +1,6 @@
 m4_define([netcalc_major_version], [1])
 m4_define([netcalc_minor_version], [0])
-m4_define([netcalc_micro_version], [0])
+m4_define([netcalc_micro_version], [2])
 m4_define([netcalc_version],[netcalc_major_version.netcalc_minor_version.netcalc_micro_version])
 
 AC_INIT([netcalc],[netcalc_version],[shm@hallas.nu])
