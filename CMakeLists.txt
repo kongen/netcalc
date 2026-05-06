@@ -45,11 +45,12 @@ configure_file(
 )
 
 add_executable(ipv4calc
-	src/ipv4calc.cpp
 	src/main.cpp
 )
 
 set(NETCALC_LIBRARY_SOURCES
+	src/ipv4calc.cpp
+	src/ipv6calc.cpp
 	src/netcalc.cpp
 	src/netcalc_format.cpp
 )
@@ -88,7 +89,6 @@ target_compile_features(ipv4calc PRIVATE cxx_std_11)
 target_link_libraries(ipv4calc PRIVATE netcalc)
 
 add_executable(ipv6calc
-	src/ipv6calc.cpp
 	src/ipv6_main.cpp
 )
 

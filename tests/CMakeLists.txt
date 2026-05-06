@@ -12,7 +12,6 @@ add_test(NAME netcalc_unit_tests COMMAND netcalc_tests)
 
 add_executable(ipv4calc_tests
 	test_ipv4calc.cpp
-	${CMAKE_SOURCE_DIR}/src/ipv4calc.cpp
 )
 
 target_include_directories(ipv4calc_tests PRIVATE ${CMAKE_BINARY_DIR}/src ${CMAKE_SOURCE_DIR}/src)
@@ -33,7 +32,6 @@ add_test(NAME ipv4calc_cli_tests COMMAND ipv4calc_cli_tests $<TARGET_FILE:ipv4ca
 
 add_executable(ipv6calc_tests
 	test_ipv6calc.cpp
-	${CMAKE_SOURCE_DIR}/src/ipv6calc.cpp
 )
 
 target_include_directories(ipv6calc_tests PRIVATE ${CMAKE_BINARY_DIR}/src ${CMAKE_SOURCE_DIR}/src)
