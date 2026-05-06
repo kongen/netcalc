@@ -138,6 +138,17 @@ TEST_F(Ipv4CalcCliTest, RejectsOversizedPrefix)
 	EXPECT_THAT(result.output, HasSubstr("Error: invalid prefix size"));
 }
 
+TEST_F(Ipv4CalcCliTest, RejectsLegacyNumericAddressForms)
+{
+	const auto octalResult(runCommand(shellQuote(binary()) + " 010.0.0.1/24 2>&1"));
+	EXPECT_THAT(octalResult.exitCode, Ne(0));
+	EXPECT_THAT(octalResult.output, HasSubstr("Error: invalid ip address"));
+
+	const auto integerResult(runCommand(shellQuote(binary()) + " 3232235777/24 2>&1"));
+	EXPECT_THAT(integerResult.exitCode, Ne(0));
+	EXPECT_THAT(integerResult.output, HasSubstr("Error: invalid ip address"));
+}
+
 TEST_F(Ipv4CalcCliTest, PrintsHelp)
 {
 	const auto result(runCommand(shellQuote(binary()) + " --help 2>&1"));
@@ -210,6 +221,13 @@ TEST_F(Ipv4CalcCliTest, PrintsJsonWhenRequested)
 	const auto result(runCommand(shellQuote(binary()) + " --format json 192.168.1.10/24 2>&1"));
 	EXPECT_EQ(result.exitCode, 0);
 	EXPECT_THAT(result.output, HasSubstr("\"network_address\": \"192.168.1.0\""));
+}
+
+TEST_F(Ipv4CalcCliTest, PrintsSlash32JsonHostCount)
+{
+	const auto result(runCommand(shellQuote(binary()) + " --format json 8.8.4.4/32 2>&1"));
+	EXPECT_EQ(result.exitCode, 0);
+	EXPECT_THAT(result.output, HasSubstr("\"total_hosts\": 1"));
 }
 #endif
 

@@ -7,12 +7,61 @@
 #include "netcalc_build_config.h"
 #include "netcalc.h"
 
+#include <cctype>
 #include <iostream>
 #include <stdexcept>
 
 namespace ipv4calc {
 
 using namespace std;
+
+namespace {
+
+bool isStrictDottedDecimal(string const& value)
+{
+	unsigned parts(0);
+	unsigned octet(0);
+	unsigned digits(0);
+	bool leadingZero(false);
+
+	for (string::size_type i = 0; i <= value.size(); ++i) {
+		const bool atEnd(i == value.size());
+		const char c(atEnd ? '.' : value[i]);
+
+		if (!atEnd && isdigit(static_cast<unsigned char>(c)) != 0) {
+			if (digits == 0) {
+				octet = 0;
+				leadingZero = c == '0';
+			} else if (leadingZero) {
+				return false;
+			}
+			octet = (octet * 10) + static_cast<unsigned>(c - '0');
+			if (octet > 255)
+				return false;
+			++digits;
+			if (digits > 3)
+				return false;
+			continue;
+		}
+
+		if (c != '.' || digits == 0)
+			return false;
+
+		++parts;
+		digits = 0;
+		octet = 0;
+		leadingZero = false;
+	}
+
+	return parts == 4;
+}
+
+bool parseIpv4Address(string const& value, in_addr& addr)
+{
+	return isStrictDottedDecimal(value) && inet_pton(AF_INET, value.c_str(), &addr) == 1;
+}
+
+} // namespace
 
 string to_ipv4(in_addr_t v)
 {
@@ -71,7 +120,7 @@ pair<string,unsigned> parseCidr(string const& v)
 unsigned parseNetmask(string const& v)
 {
 	in_addr addr;
-	if (inet_aton(v.c_str(), &addr) == 0)
+	if (!parseIpv4Address(v, addr))
 		return 33;
 	return netmask2prefixSize(addr.s_addr);
 }
@@ -169,7 +218,7 @@ netcalc::CalculationResult Ipv4Calculator::calculate(vector<string> const& posit
 	const unsigned prefixSize(parsed.second);
 
 	in_addr addr;
-	if (inet_aton(ipAddress.c_str(), &addr) == 0) {
+	if (!parseIpv4Address(ipAddress, addr)) {
 		result.errorMessage = "Error: invalid ip address";
 		return result;
 	}
@@ -215,7 +264,7 @@ netcalc::CalculationResult Ipv4Calculator::calculate(vector<string> const& posit
 		result.fields.push_back(netcalc::OutputField("network_address", "Network Address", networkText));
 		result.fields.push_back(netcalc::OutputField("broadcast_address", "Broadcast Address", broadcastText));
 		result.fields.push_back(netcalc::OutputField("usable_host_range", "Usable Host Range", hostRangeText));
-		result.fields.push_back(netcalc::OutputField("total_hosts", "Total number of host(s)", netcalc::toString(prefixSize < 32 ? totalHosts : 0ull), true));
+		result.fields.push_back(netcalc::OutputField("total_hosts", "Total number of host(s)", netcalc::toString(totalHosts), true));
 		result.fields.push_back(netcalc::OutputField("usable_hosts", "Number of usable hosts", netcalc::toString(usableHosts), true));
 	}
 	result.fields.push_back(netcalc::OutputField("ip_class", "IP Class", classText));

@@ -44,6 +44,12 @@ TEST(NetmaskParsing, RejectsNonContiguousNetmask)
 	EXPECT_THAT(parseNetmask("255.0.255.0"), Eq(33u));
 }
 
+TEST(NetmaskParsing, RejectsLegacyNumericForms)
+{
+	EXPECT_THAT(parseNetmask("0377.0377.0377.0"), Eq(33u));
+	EXPECT_THAT(parseNetmask("0xffffffff"), Eq(33u));
+}
+
 TEST(NetmaskConversion, ConvertsPrefixToNetmask)
 {
 	EXPECT_THAT(prefixSize2netmask(24), Eq(inet_addr("255.255.255.0")));
