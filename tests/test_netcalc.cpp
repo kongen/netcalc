@@ -145,7 +145,7 @@ TEST(NetcalcOptions, RejectsNullOutputValuePointer)
 
 TEST(NetcalcOutput, UsesStdoutWhenRequested)
 {
-	std::ofstream outputFile;
+	netcalc::OutputFile outputFile;
 	std::ostream* out(0);
 	std::string errorMessage;
 
@@ -156,7 +156,7 @@ TEST(NetcalcOutput, UsesStdoutWhenRequested)
 
 TEST(NetcalcOutput, UsesStderrWhenRequested)
 {
-	std::ofstream outputFile;
+	netcalc::OutputFile outputFile;
 	std::ostream* out(0);
 	std::string errorMessage;
 
@@ -168,7 +168,7 @@ TEST(NetcalcOutput, UsesStderrWhenRequested)
 TEST(NetcalcOutput, WritesFormattedJsonToFile)
 {
 	const std::string path("/tmp/netcalc-lib-test-output.txt");
-	std::ofstream outputFile;
+	netcalc::OutputFile outputFile;
 	std::ostream* out(0);
 	std::string errorMessage;
 
@@ -178,7 +178,7 @@ TEST(NetcalcOutput, WritesFormattedJsonToFile)
 	fields.push_back(netcalc::OutputField("network_address", "Network Address", "192.168.1.0"));
 	fields.push_back(netcalc::OutputField("prefix_size", "Prefix Size", "24", true));
 	netcalc::writeFormattedReport(*out, netcalc::OutputFormat::Json, "ipv4calc", fields);
-	outputFile.close();
+	ASSERT_TRUE(outputFile.close());
 
 	std::ifstream stream(path.c_str());
 	ASSERT_TRUE(stream.is_open());
@@ -276,7 +276,7 @@ TEST(NetcalcOutput, RefusesSymbolicLinkOutputTarget)
 	}
 	ASSERT_EQ(symlink(targetPath.c_str(), linkPath.c_str()), 0);
 
-	std::ofstream outputFile;
+	netcalc::OutputFile outputFile;
 	std::ostream* out(0);
 	std::string errorMessage;
 	EXPECT_FALSE(netcalc::configureOutput(linkPath, outputFile, out, std::cout, std::cerr, errorMessage));
@@ -294,6 +294,16 @@ TEST(NetcalcOutput, NumericFieldIsWrittenAsRawValue)
 
 	ASSERT_TRUE(netcalc::writeFormattedReport(output, netcalc::OutputFormat::Json, "root", fields));
 	EXPECT_THAT(output.str(), HasSubstr("\"prefix_size\": 24"));
+}
+
+TEST(NetcalcOutput, InvalidNumericFieldIsWrittenAsEscapedString)
+{
+	std::ostringstream output;
+	std::vector<netcalc::OutputField> fields;
+	fields.push_back(netcalc::OutputField("unsafe", "Unsafe", "1, \"evil\": true", true));
+
+	ASSERT_TRUE(netcalc::writeFormattedReport(output, netcalc::OutputFormat::Json, "root", fields));
+	EXPECT_THAT(output.str(), HasSubstr("\"unsafe\": \"1, \\\"evil\\\": true\""));
 }
 
 TEST(NetcalcHelpers, BaseNameHandlesCommonPathShapes)

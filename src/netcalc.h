@@ -1,8 +1,8 @@
 #ifndef NETCALC_H
 #define NETCALC_H
 
-#include <fstream>
 #include <iosfwd>
+#include <memory>
 #include "netcalc_format.h"
 #include <sstream>
 #include <string>
@@ -37,9 +37,27 @@ protected:
 	virtual CalculationResult calculate(std::vector<std::string> const& positionalArgs, OutputFormat format) const = 0;
 };
 
+class OutputFile {
+public:
+	OutputFile();
+	~OutputFile();
+
+	OutputFile(OutputFile const&) = delete;
+	OutputFile& operator=(OutputFile const&) = delete;
+
+	bool open(std::string const& path, std::string& errorMessage);
+	bool close();
+	bool isOpen() const;
+	std::ostream& stream();
+
+private:
+	struct Impl;
+	std::unique_ptr<Impl> impl_;
+};
+
 std::string baseName(char const* argv0);
 ParsedOptions parseOptions(int argc, char* argv[]);
-bool configureOutput(std::string const& outputTarget, std::ofstream& outputFile, std::ostream*& out, std::ostream& stdoutStream, std::ostream& stderrStream, std::string& errorMessage);
+bool configureOutput(std::string const& outputTarget, OutputFile& outputFile, std::ostream*& out, std::ostream& stdoutStream, std::ostream& stderrStream, std::string& errorMessage);
 
 template<typename T>
 std::string toString(T const& value)

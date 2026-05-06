@@ -82,6 +82,50 @@ std::string xmlEscape(std::string const& value)
 	return escaped;
 }
 
+bool consumeDigits(std::string const& value, std::string::size_type& pos)
+{
+	const std::string::size_type start(pos);
+	while (pos < value.size() && std::isdigit(static_cast<unsigned char>(value[pos])) != 0)
+		++pos;
+	return pos != start;
+}
+
+bool isJsonNumber(std::string const& value)
+{
+	std::string::size_type pos(0);
+
+	if (pos < value.size() && value[pos] == '-')
+		++pos;
+
+	if (pos >= value.size())
+		return false;
+
+	if (value[pos] == '0') {
+		++pos;
+	} else if (value[pos] >= '1' && value[pos] <= '9') {
+		if (!consumeDigits(value, pos))
+			return false;
+	} else {
+		return false;
+	}
+
+	if (pos < value.size() && value[pos] == '.') {
+		++pos;
+		if (!consumeDigits(value, pos))
+			return false;
+	}
+
+	if (pos < value.size() && (value[pos] == 'e' || value[pos] == 'E')) {
+		++pos;
+		if (pos < value.size() && (value[pos] == '+' || value[pos] == '-'))
+			++pos;
+		if (!consumeDigits(value, pos))
+			return false;
+	}
+
+	return pos == value.size();
+}
+
 bool isXmlNameStartChar(char c)
 {
 	return std::isalpha(static_cast<unsigned char>(c)) != 0 || c == '_';
@@ -134,7 +178,7 @@ bool writeJson(std::ostream& out, std::string const& rootName, std::vector<Outpu
 			out << ",\n";
 		first = false;
 		out << "    \"" << jsonEscape(it->key) << "\": ";
-		if (it->numeric)
+		if (it->numeric && isJsonNumber(it->value))
 			out << it->value;
 		else
 			out << "\"" << jsonEscape(it->value) << "\"";

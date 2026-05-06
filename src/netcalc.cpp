@@ -1,7 +1,12 @@
 #include "netcalc.h"
 #include "netcalc_build_config.h"
 
+#include <cerrno>
+#include <fcntl.h>
 #include <iostream>
+#include <ostream>
+#include <streambuf>
+#include <unistd.h>
 #include <sys/stat.h>
 
 namespace netcalc {
@@ -26,26 +31,189 @@ bool parseFormatValue(std::string const& value, OutputFormat& format)
 	return false;
 }
 
-bool isUnsafeOutputTarget(std::string const& outputTarget)
+bool writeAll(int fd, char const* data, std::streamsize size)
 {
+	while (size > 0) {
+		const ssize_t written(::write(fd, data, static_cast<size_t>(size)));
+		if (written < 0) {
+			if (errno == EINTR)
+				continue;
+			return false;
+		}
+		if (written == 0)
+			return false;
+		data += written;
+		size -= written;
+	}
+	return true;
+}
+
+class FileDescriptorBuffer : public std::streambuf {
+public:
+	explicit FileDescriptorBuffer(int fd)
+		: fd_(fd)
+	{
+	}
+
+	~FileDescriptorBuffer() override
+	{
+		close();
+	}
+
+	bool isOpen() const
+	{
+		return fd_ >= 0;
+	}
+
+	bool close()
+	{
+		if (fd_ < 0)
+			return true;
+		const int fd(fd_);
+		fd_ = -1;
+		if (::close(fd) != 0) {
+			if (errno == EINTR)
+				return true;
+			return false;
+		}
+		return true;
+	}
+
+protected:
+	std::streamsize xsputn(char const* data, std::streamsize size) override
+	{
+		return writeAll(fd_, data, size) ? size : 0;
+	}
+
+	int overflow(int c) override
+	{
+		if (c == traits_type::eof())
+			return traits_type::not_eof(c);
+		const char value(static_cast<char>(c));
+		return writeAll(fd_, &value, 1) ? c : traits_type::eof();
+	}
+
+private:
+	int fd_;
+};
+
+int safeOpenForOutput(std::string const& path, std::string& errorMessage)
+{
+	int flags(O_WRONLY | O_CREAT);
+#ifdef O_NOFOLLOW
+	flags |= O_NOFOLLOW;
+#endif
+#ifdef O_CLOEXEC
+	flags |= O_CLOEXEC;
+#endif
+#ifdef O_NONBLOCK
+	flags |= O_NONBLOCK;
+#endif
+
+	int fd;
+	do {
+		fd = ::open(path.c_str(), flags, 0666);
+	} while (fd < 0 && errno == EINTR);
+
+	if (fd < 0) {
+		const int savedErrno(errno);
+		if (
+#ifdef ELOOP
+			savedErrno == ELOOP ||
+#endif
+			savedErrno == EISDIR
+#ifdef ENXIO
+			|| savedErrno == ENXIO
+#endif
+		) {
+			errorMessage = "Error: refusing unsafe output target '" + path + "'";
+		} else {
+			errorMessage = "Error: unable to open output file '" + path + "'";
+		}
+		return -1;
+	}
+
 	struct stat info;
-	if (lstat(outputTarget.c_str(), &info) != 0)
-		return false;
-	if (S_ISLNK(info.st_mode))
-		return true;
-	if (!S_ISREG(info.st_mode))
-		return true;
-	return false;
+	if (::fstat(fd, &info) != 0 || !S_ISREG(info.st_mode)) {
+		::close(fd);
+		errorMessage = "Error: refusing unsafe output target '" + path + "'";
+		return -1;
+	}
+
+	int truncateStatus;
+	do {
+		truncateStatus = ::ftruncate(fd, 0);
+	} while (truncateStatus != 0 && errno == EINTR);
+
+	if (truncateStatus != 0 || ::lseek(fd, 0, SEEK_SET) < 0) {
+		::close(fd);
+		errorMessage = "Error: unable to open output file '" + path + "'";
+		return -1;
+	}
+
+	return fd;
 }
 
 } // namespace
+
+struct OutputFile::Impl {
+	explicit Impl(int fd)
+		: buffer(fd)
+		, stream(&buffer)
+	{
+	}
+
+	FileDescriptorBuffer buffer;
+	std::ostream stream;
+};
+
+OutputFile::OutputFile()
+	: impl_()
+{
+}
+
+OutputFile::~OutputFile() = default;
+
+bool OutputFile::open(std::string const& path, std::string& errorMessage)
+{
+	if (impl_)
+		close();
+
+	const int fd(safeOpenForOutput(path, errorMessage));
+	if (fd < 0)
+		return false;
+
+	impl_.reset(new Impl(fd));
+	return true;
+}
+
+bool OutputFile::close()
+{
+	if (!impl_)
+		return true;
+	impl_->stream.flush();
+	const bool streamOk(impl_->stream.good());
+	const bool closeOk(impl_->buffer.close());
+	impl_.reset();
+	return streamOk && closeOk;
+}
+
+bool OutputFile::isOpen() const
+{
+	return impl_ && impl_->buffer.isOpen();
+}
+
+std::ostream& OutputFile::stream()
+{
+	return impl_->stream;
+}
 
 int Calculator::run(int argc, char* argv[]) const
 {
 	const char* argv0 = (argv != 0 && argc > 0) ? argv[0] : "";
 	const std::string appName(baseName(argv0));
 	const ParsedOptions options(parseOptions(argc, argv));
-	std::ofstream outputFile;
+	OutputFile outputFile;
 	std::ostream* out(&std::cout);
 	std::string errorMessage;
 
@@ -75,9 +243,8 @@ int Calculator::run(int argc, char* argv[]) const
 		return 1;
 	}
 
-	if (outputFile.is_open()) {
-		outputFile.close();
-		if (!outputFile.good()) {
+	if (outputFile.isOpen()) {
+		if (!outputFile.close()) {
 			std::cerr << "Error: failed to write output" << std::endl;
 			return 1;
 		}
@@ -168,7 +335,7 @@ ParsedOptions parseOptions(int argc, char* argv[])
 	return options;
 }
 
-bool configureOutput(std::string const& outputTarget, std::ofstream& outputFile, std::ostream*& out, std::ostream& stdoutStream, std::ostream& stderrStream, std::string& errorMessage)
+bool configureOutput(std::string const& outputTarget, OutputFile& outputFile, std::ostream*& out, std::ostream& stdoutStream, std::ostream& stderrStream, std::string& errorMessage)
 {
 	if (outputTarget.empty() || outputTarget == "stdout") {
 		out = &stdoutStream;
@@ -178,20 +345,13 @@ bool configureOutput(std::string const& outputTarget, std::ofstream& outputFile,
 		out = &stderrStream;
 		return true;
 	}
-	if (isUnsafeOutputTarget(outputTarget)) {
-		errorMessage = "Error: refusing unsafe output target '" + outputTarget + "'";
+
+	if (!outputFile.open(outputTarget, errorMessage)) {
 		out = &stdoutStream;
 		return false;
 	}
 
-	outputFile.open(outputTarget.c_str(), std::ios::out | std::ios::trunc);
-	if (!outputFile.is_open()) {
-		errorMessage = "Error: unable to open output file '" + outputTarget + "'";
-		out = &stdoutStream;
-		return false;
-	}
-
-	out = &outputFile;
+	out = &outputFile.stream();
 	return true;
 }
 } // namespace netcalc
