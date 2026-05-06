@@ -2,10 +2,7 @@ aclocal.m4
 ar-lib
 autom4te.cache
 autoscan-*.log
-build-cpp11-check/
-build-no-tests/
-build-reapply-shared/
-build-reapply-static/
+build-*
 build/
 compile
 config.guess
